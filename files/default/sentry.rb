@@ -11,6 +11,11 @@ module Raven
           config.current_environment = node.chef_environment
           config.environments = [node.chef_environment]
           config.send_modules = Gem::Specification.respond_to?(:map)
+          config.tags = {
+              os_name: node[:platform].downcase,
+              os_version: node[:platform_version].downcase,
+              os_codename: node.fetch(:lsb, Hash.new).fetch(:codename, '???').downcase
+          }
         end
         Raven.logger.debug "Raven ready to report errors"
       end
@@ -19,7 +24,10 @@ module Raven
         return if success?
         Raven.logger.info "Logging run failure to Sentry server"
         if exception
-          evt = Raven::Event.capture_exception(exception)
+          evt = Raven::Event.capture_exception exception,
+            tags: {
+              cookbook_version: run_context.cookbook_collection['scalr-core'].metadata.version
+            }
         else
           evt = Raven::Event.new do |evt|
             evt.message = "Unknown error during Chef run"
